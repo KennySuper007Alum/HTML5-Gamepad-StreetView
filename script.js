@@ -1,93 +1,61 @@
-var gamepadIndex = null;
-var gamepad = null;
+var keyState = {
+  w: false,
+  a: false,
+  s: false,
+  d: false,
+};
 
-function gamepadconnected(e) {
-  if(gamepadIndex == null) {
-    gamepadIndex = e.gamepad.index;
-    gamepad = e.gamepad;
-    document.getElementById("gamepadState").innerHTML = "connected";
-    console.log("Connect: %s", e.gamepad.id);
+function keydownHandler(e) {
+  switch (e.key) {
+    case "w":
+    case "W":
+      keyState.w = true;
+      break;
+    case "a":
+    case "A":
+      keyState.a = true;
+      break;
+    case "s":
+    case "S":
+      keyState.s = true;
+      break;
+    case "d":
+    case "D":
+      keyState.d = true;
+      break;
   }
 }
 
-function gamepaddisconnected(e) {
-  if(gamepadIndex == e.gamepad.index) {
-    gamepadIndex = null;
-    gamepad = null;
-    document.getElementById("gamepadState").innerHTML = "disconnected";
-    console.log("Disconnect: %s", e.gamepad.id);
+function keyupHandler(e) {
+  switch (e.key) {
+    case "w":
+    case "W":
+      keyState.w = false;
+      break;
+    case "a":
+    case "A":
+      keyState.a = false;
+      break;
+    case "s":
+    case "S":
+      keyState.s = false;
+      break;
+    case "d":
+    case "D":
+      keyState.d = false;
+      break;
   }
 }
 
-var buttonDown = false;
-
-function mainloop() {
-  if (gamepadIndex != null) {
-    updateGamepadState();
-    
-    if (buttonDown) {
-      if (!isButtonPressed(gamepad, 0)) {
-        buttonDown = false;
-      }
-    } else {
-      if (isButtonPressed(gamepad, 0)) {
-        buttonDown = true;
-        
-        var newCoords = getNewCoordinates(coords, pov.heading, 10);
-        svService.getPanorama({location: newCoords, radius: 20}, processSVData);
-      }
-    }
-    
-    // Update heading wrt controller x-axis - ranges from -1 (left) to +1 (right)
-    var xAxis = getAxisValue(gamepad, 0);
-    pov.heading += xAxis;
-    
-    // Simple rotation of steering wheel based on controller input
-    document.getElementById("wheel").style.transform = "rotate(" + (xAxis*90) + "deg)";
-    
-    // Simple map
-    document.getElementById("map").style.transform = "rotate(" + (-pov.heading) + "deg)";
-    
-    // Update pitch wrt controller y-axis - ranges from -1 (up) to +1 (down)
-    var yAxis = getAxisValue(gamepad, 1);
-    pov.pitch -= yAxis; // Need to invert y-axis control
-    // Clamp value to +/- 20 so you don't end up looking at your feet or the sky
-    if (pov.pitch > 20) {
-      pov.pitch = 20;
-    }
-    if (pov.pitch < -20) {
-      pov.pitch = -20;
-    }
-    pov.pitch *= 0.95; // Automatically drift pitch back to level
-    //console.log(pov.pitch);
-    
-    streetView.setPov(pov);
-  }
-  
-  window.requestAnimationFrame(mainloop);
+/*Math Function*/
+// Convert degrees to radians
+function d2r(degrees) {
+  return degrees * (Math.PI / 180);
 }
 
-function getGamepads() {
-  return navigator.getGamepads ? navigator.getGamepads() : (navigator.webkitGetGamepads ? navigator.webkitGetGamepads() : []);
-}
-
-function isButtonPressed(gamepad, buttonId) {
-  var button = gamepad.buttons[buttonId];
-  //console.log("button[%d]: pressed: %s, value: %d", buttonId, button.pressed, button.value);
-  return button.pressed;
-}
-
-function getAxisValue(gamepad, axisId) {
-  return gamepad.axes[axisId];
-}
-
-function updateGamepadState() {
-  var connectedGamepads = getGamepads();
-  for (var i = 0; i < connectedGamepads.length; i++) {
-    if (connectedGamepads[i] && connectedGamepads[i].index == gamepadIndex) {
-      gamepad = connectedGamepads[i];
-    }
-  }
+// Convert radians to degrees
+function r2d(radians) {
+  return radians * (180 / Math.PI);
 }
 
 // Calculate new coordinates given current coordinates, a heading, and a distance
@@ -112,9 +80,9 @@ function getNewCoordinates(coords, heading, distance) {
   return {lat: lat, lng: lng};
 }
 
-// Register event listeners
-window.addEventListener("gamepadconnected", gamepadconnected);
-window.addEventListener("gamepaddisconnected", gamepaddisconnected);
+/*Initial Entry*/
+document.addEventListener("keydown", keydownHandler, { passive: true });
+document.addEventListener("keyup", keyupHandler, { passive: true });
 
 // Register main update loop
 window.requestAnimationFrame(mainloop);
@@ -130,17 +98,19 @@ var pov = {heading: 225, pitch: 0};
 var coords = {lat: 48.8592236, lng: 2.2972824};
 
 function initMap() {
+
   // Map panel
   map = new google.maps.Map(document.getElementById('map'), {
     center: coords,
-    zoom: 18, // Reasonable zoom level for our requirements
+    zoom: 15, // Reasonable zoom level for our requirements
     streetViewControl: false // No pegman button
   });
   map.setOptions({
-    disableDefaultUI: true,
-    draggable: false,
-    scrollwheel: false,
-    keyboardShortcuts: false
+    // disableDefaultUI: true,
+    // draggable: false,
+    // scrollwheel: false,
+    // keyboardShortcuts: false,
+    fullscreenControl: true
   });
   
   // Show valid Street View locations in a blue overlay on the map
@@ -149,11 +119,12 @@ function initMap() {
   
   // Street view panel
   streetView = new google.maps.StreetViewPanorama(document.getElementById("streetView"));
-  streetView.setZoom(2);
+  streetView.setZoom(0);
   streetView.setOptions({
-    disableDefaultUI: true, // Remove all controls: compass, zoom etc
-    scrollwheel: false, // Disable zooming using the scroll wheel
-    panControl: false
+    // disableDefaultUI: true, // Remove all controls: compass, zoom etc
+    // scrollwheel: false, // Disable zooming using the scroll wheel
+    // panControl: false,
+    fullscreenControl: true
   });
   
   // Hook to communicate with the street view data provider service
@@ -161,12 +132,15 @@ function initMap() {
   
   // Set the initial Street View camera to near the starting coordinates
   svService.getPanorama({location: coords, radius: 10}, processSVData);
+
 }
 
 function processSVData(data, status) {
+  console.log("processSVData");
   if (status === google.maps.StreetViewStatus.OK) {
     // Update street view with new location
     streetView.setPano(data.location.pano);
+
     streetView.setPov(pov);
     streetView.setVisible(true);
     
@@ -182,7 +156,7 @@ function processSVData(data, status) {
       marker = new google.maps.Marker({
         position: data.location.latLng,
         map: map,
-        clickable: false,
+        clickable: true,
         icon: dot
       });
     } else {
@@ -200,3 +174,52 @@ function processSVData(data, status) {
   }
 }
 
+/*Main Function*/
+function mainloop() {
+
+  console.log(keyState);
+
+  if (!streetView) {
+    window.requestAnimationFrame(mainloop);
+    return;
+  }
+
+  if (keyState.w) {
+    // Handle W key
+    var newCoords = getNewCoordinates(coords, pov.heading, 7);
+    svService.getPanorama({ location: newCoords, radius: 10 }, processSVData);
+  }
+  if (keyState.a) {
+    // Handle A key
+    pov.heading += 1;
+  }
+  if (keyState.s) {
+    // Handle S key
+    var newCoords = getNewCoordinates(coords, pov.heading, -7);
+    svService.getPanorama({ location: newCoords, radius: 10 }, processSVData);
+  }
+  if (keyState.d) {
+    // Handle D key
+    pov.heading -= 1;
+  }
+
+  // Clamp pitch value to +/- 20 so you don't end up looking at your feet or the sky
+  if (pov.pitch > 20) {
+    pov.pitch = 20;
+  }
+  if (pov.pitch < -20) {
+    pov.pitch = -20;
+  }
+  pov.pitch *= 0.95; // Automatically drift pitch back to level
+
+  // Simple rotation of steering wheel based on controller input
+  document.getElementById("wheel").style.transform = "rotate(" + (-pov.heading) + "deg)";
+
+  // Simple map
+  document.getElementById("map").style.transform = "rotate(" + pov.heading + "deg)";
+
+  streetView.setPov(pov);
+
+  window.requestAnimationFrame(mainloop);
+
+}

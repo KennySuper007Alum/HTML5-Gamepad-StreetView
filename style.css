@@ -8,30 +8,6 @@ body {
   margin: auto;
 }
 
-/* The main game/display area. */
-#display {
-  /* Ignore mouse clicks. */
-  pointer-events: none;
-  /* To allow for absolutely-positioned children. */
-  position: relative;
-  /* Fixed 720p dimension. */
-  width: 1280px;
-  height: 720px;
-  /* Will be entirely obscured - purely for safety. */
-  background-color: black;
-  /* Crop all children to this element. */
-  overflow: hidden;
-}
-
-/* The Google Street View panel. */
-#streetView {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-}
-
 /* The car interior. */
 #interior {
   /* Cover entire display. */
@@ -44,22 +20,27 @@ body {
 #wheel {
   position: absolute;
   top: 520px;
-  left: 830px;
-  transform: rotate(0deg);
+  Right: 100px;
+    transform: rotate(-360deg);
+    z-index: 4;
 }
 
+/* The Google Street View panel. */
+#streetView {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
 /* The container for the map. */
 #mapPanel {
   /* Absolute position and dimensions. */
   position: absolute;
-  top: 544px;
-  left: 554px;
-  width: 170px;
-  height: 140px;
-  /* Crop the contained rotated map. */
-  overflow: hidden;
-  /* temp? */
-  border: 1px solid black;
+  top: 600px;
+    left: 100px;
+    transform: rotate(0deg);
+    z-index: 4;
 }
 
 /* The actual Google Map panel. */
@@ -68,18 +49,6 @@ body {
   height: 230px;
   top: -45px;
   left: -28px;
-}
-
-/* Gamepad connected/disconnected message. */
-#gamepadMessage {
-  pointer-events: none;
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  background-color: white;
-  border: 1px solid black;
-  padding: 2px;
-  margin: 0;
 }
 
 footer {
