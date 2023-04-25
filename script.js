@@ -5,6 +5,7 @@ var keyState = {
   d: false,
 };
 
+
 function keydownHandler(e) {
   switch (e.key) {
     case "w":
@@ -47,6 +48,35 @@ function keyupHandler(e) {
   }
 }
 
+//up down left right botton
+document.addEventListener("DOMContentLoaded", function () {
+  // Get references to the up, left, down, and right buttons
+  var upButton = document.getElementById("up");
+  var leftButton = document.getElementById("left");
+  var downButton = document.getElementById("down");
+  var rightButton = document.getElementById("right");
+
+  // Add click event listeners to the buttons
+  upButton.addEventListener("mousedown", (e) => { keyState.w = true; e.preventDefault(); });
+  upButton.addEventListener("touchstart", (e) => { keyState.w = true; e.preventDefault(); });
+  leftButton.addEventListener("mousedown", (e) => { keyState.d = true; e.preventDefault(); });
+  leftButton.addEventListener("touchstart", (e) => { keyState.d = true; e.preventDefault(); });
+  downButton.addEventListener("mousedown", (e) => { keyState.s = true; e.preventDefault(); });
+  downButton.addEventListener("touchstart", (e) => { keyState.s = true; e.preventDefault(); });
+  rightButton.addEventListener("mousedown", (e) => { keyState.a = true; e.preventDefault(); });
+  rightButton.addEventListener("touchstart", (e) => { keyState.a = true; e.preventDefault(); });
+
+  // Add release event listeners to the buttons
+  upButton.addEventListener("mouseup", (e) => { keyState.w = false; e.preventDefault(); });
+  upButton.addEventListener("touchend", (e) => { keyState.w = false; e.preventDefault(); });
+  leftButton.addEventListener("mouseup", (e) => { keyState.d = false; e.preventDefault(); });
+  leftButton.addEventListener("touchend", (e) => { keyState.d = false; e.preventDefault(); });
+  downButton.addEventListener("mouseup", (e) => { keyState.s = false; e.preventDefault(); });
+  downButton.addEventListener("touchend", (e) => { keyState.s = false; e.preventDefault(); });
+  rightButton.addEventListener("mouseup", (e) => { keyState.a = false; e.preventDefault(); });
+  rightButton.addEventListener("touchend", (e) => { keyState.a = false; e.preventDefault(); });
+});
+
 /*Math Function*/
 // Convert degrees to radians
 function d2r(degrees) {
@@ -60,10 +90,12 @@ function r2d(radians) {
 
 // Calculate new coordinates given current coordinates, a heading, and a distance
 function getNewCoordinates(coords, heading, distance) {
+
   // Current coordinates
   var lat = coords.lat;
   var lng = coords.lng;
-  
+
+
   // Calculate deviation in meters
   var dx = Math.sin(d2r(heading)) * distance;
   var dy = Math.cos(d2r(heading)) * distance;
@@ -78,6 +110,12 @@ function getNewCoordinates(coords, heading, distance) {
   
   // Return new coordinate
   return {lat: lat, lng: lng};
+}
+
+function getPreviousCoordinates(preCoords) {
+  var lat = preCoords.lat;
+  var lng = preCoords.lng;
+  return { lat: lat, lng: lng };
 }
 
 /*Initial Entry*/
@@ -95,7 +133,9 @@ var marker;
 // Default view direction
 var pov = {heading: 225, pitch: 0};
 // Start in Paris
-var coords = {lat: 48.8592236, lng: 2.2972824};
+var coords = { lat: 40.44460774098271, lng: -79.9445135945241 };
+var preCoords = { lat: null, lng: null }
+
 
 function initMap() {
 
@@ -106,11 +146,10 @@ function initMap() {
     streetViewControl: false // No pegman button
   });
   map.setOptions({
-    // disableDefaultUI: true,
-    // draggable: false,
-    // scrollwheel: false,
-    // keyboardShortcuts: false,
-    fullscreenControl: true
+    disableDefaultUI: true,
+    draggable: false,
+    scrollwheel: false,
+    keyboardShortcuts: false
   });
   
   // Show valid Street View locations in a blue overlay on the map
@@ -121,21 +160,22 @@ function initMap() {
   streetView = new google.maps.StreetViewPanorama(document.getElementById("streetView"));
   streetView.setZoom(0);
   streetView.setOptions({
-    // disableDefaultUI: true, // Remove all controls: compass, zoom etc
-    // scrollwheel: false, // Disable zooming using the scroll wheel
-    // panControl: false,
+    disableDefaultUI: true, // Remove all controls: compass, zoom etc
+    scrollwheel: false, // Disable zooming using the scroll wheel
+    panControl: false,
     fullscreenControl: true
   });
-  
+
   // Hook to communicate with the street view data provider service
   svService = new google.maps.StreetViewService();
-  
-  // Set the initial Street View camera to near the starting coordinates
-  svService.getPanorama({location: coords, radius: 10}, processSVData);
 
+    // Set the initial Street View camera to near the starting coordinates
+  svService.getPanorama({ location: coords, preference: google.maps.StreetViewPreference.NEAREST, source: google.maps.StreetViewSource.OUTDOOR, radius: 10 }, processSVData);
+  resizeStreetView()
 }
 
 function processSVData(data, status) {
+  return new Promise((resolve, reject) => {
   console.log("processSVData");
   if (status === google.maps.StreetViewStatus.OK) {
     // Update street view with new location
@@ -165,19 +205,39 @@ function processSVData(data, status) {
     
     // Update minimap to show new location
     map.panTo(data.location.latLng);
+
+    // Update current coordinates
+    preCoords.lat = coords.lat;
+    preCoords.lng = coords.lng;
     
     // Update current coordinates
     coords.lat = data.location.latLng.lat();
     coords.lng = data.location.latLng.lng();
+    resolve();
   } else {
     console.error('Street View data not found for this location.');
   }
+  });
 }
 
-/*Main Function*/
-function mainloop() {
+// Adjust the Street View panel size when the window size changes.
+function resizeStreetView() {
+  const streetView = document.getElementById("streetView");
+  streetView.style.width = window.innerWidth + "px";
+  streetView.style.height = window.innerHeight + "px";
+  // Initialize the Street View when the panel is resized
+}
+// Add a listener to update the Street View panel size when the window is resized.
+window.addEventListener("resize", resizeStreetView);
 
-  console.log(keyState);
+// Initialize the Street View when the page loads.
+window.addEventListener("load", streetView);
+
+
+/*Main Function*/
+async function mainloop() {
+
+  // console.log(keyState);
 
   if (!streetView) {
     window.requestAnimationFrame(mainloop);
@@ -187,7 +247,11 @@ function mainloop() {
   if (keyState.w) {
     // Handle W key
     var newCoords = getNewCoordinates(coords, pov.heading, 7);
-    svService.getPanorama({ location: newCoords, radius: 10 }, processSVData);
+    await new Promise((resolve, reject) => {
+      svService.getPanorama({ location: newCoords, preference: google.maps.StreetViewPreference.NEAREST, source: google.maps.StreetViewSource.OUTDOOR, radius: 10 }, (data, status) => {
+        processSVData(data, status).then(resolve).catch(reject);
+      });
+    });
   }
   if (keyState.a) {
     // Handle A key
@@ -196,7 +260,11 @@ function mainloop() {
   if (keyState.s) {
     // Handle S key
     var newCoords = getNewCoordinates(coords, pov.heading, -7);
-    svService.getPanorama({ location: newCoords, radius: 10 }, processSVData);
+    await new Promise((resolve, reject) => {
+      svService.getPanorama({ location: newCoords, preference: google.maps.StreetViewPreference.NEAREST, source: google.maps.StreetViewSource.OUTDOOR, radius: 10 }, (data, status) => {
+        processSVData(data, status).then(resolve).catch(reject);
+      });
+    });
   }
   if (keyState.d) {
     // Handle D key
@@ -213,7 +281,7 @@ function mainloop() {
   pov.pitch *= 0.95; // Automatically drift pitch back to level
 
   // Simple rotation of steering wheel based on controller input
-  document.getElementById("wheel").style.transform = "rotate(" + (-pov.heading) + "deg)";
+  // document.getElementById("wheel").style.transform = "rotate(" + (-pov.heading) + "deg)";
 
   // Simple map
   document.getElementById("map").style.transform = "rotate(" + pov.heading + "deg)";
