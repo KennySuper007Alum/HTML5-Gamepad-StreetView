@@ -118,6 +118,16 @@ function getPreviousCoordinates(preCoords) {
   return { lat: lat, lng: lng };
 }
 
+// coculate the difference between 2 points in a circle
+function getDifference(point1, point2) {
+  var dif = Math.abs * (point1 - point2);
+
+  if (dif > 180) {
+    dif = 360 - dif;
+  }
+  return dif;
+}
+
 /*Initial Entry*/
 document.addEventListener("keydown", keydownHandler, { passive: true });
 document.addEventListener("keyup", keyupHandler, { passive: true });
@@ -131,10 +141,18 @@ var streetView;
 var svService;
 var marker;
 // Default view direction
-var pov = {heading: 225, pitch: 0};
+var pov = { heading: 90, pitch: 0 };
 // Start in Paris
-var coords = { lat: 40.44460774098271, lng: -79.9445135945241 };
+var coords = { lat: 40.44460773097255, lng: -79.9445135945247 };
 var preCoords = { lat: null, lng: null }
+
+//get foward and back links
+var fowardLinkPanoID;
+var backLinkPanoID;
+
+//foward and backward status
+var fowardStatus = false;
+var backwardStatus = false;
 
 
 function initMap() {
@@ -163,14 +181,15 @@ function initMap() {
     disableDefaultUI: true, // Remove all controls: compass, zoom etc
     scrollwheel: false, // Disable zooming using the scroll wheel
     panControl: false,
-    fullscreenControl: true
+    fullscreenControl: true,
+    linksControl: true
   });
 
   // Hook to communicate with the street view data provider service
   svService = new google.maps.StreetViewService();
 
     // Set the initial Street View camera to near the starting coordinates
-  svService.getPanorama({ location: coords, preference: google.maps.StreetViewPreference.NEAREST, source: google.maps.StreetViewSource.OUTDOOR, radius: 10 }, processSVData);
+  svService.getPanorama({ location: coords, radius: 10 }, processSVData);
   resizeStreetView()
 }
 
@@ -178,12 +197,63 @@ function processSVData(data, status) {
   return new Promise((resolve, reject) => {
   console.log("processSVData");
   if (status === google.maps.StreetViewStatus.OK) {
-    // Update street view with new location
-    streetView.setPano(data.location.pano);
 
-    streetView.setPov(pov);
-    streetView.setVisible(true);
-    
+    var adjacentLinks = data.links;
+
+    //print data.links
+    for (var i = 0; i < adjacentLinks.length; i++) {
+      console.log(i, "is", adjacentLinks[i]);
+    }
+
+    var adjacentPov = pov;
+    var sortedLinks = data.links;
+
+    sortedLinks = adjacentLinks.map(function (link) {
+      return {
+        link: link,
+        difference: getDifference(adjacentPov, link.heading)
+      };
+    }).sort(function (a, b) {
+      return a.difference - b.difference;
+    }).map(function (item) {
+      return item.link;
+    });
+
+
+    for (var i = 0; i < sortedLinks.length; i++) {
+      console.log(i, "sortedLinks is", sortedLinks[i], pov);
+    }
+
+    fowardLinkPanoID = sortedLinks[0].pano;
+    console.log("fowardLinkPanoID_Heading", sortedLinks[0].heading);
+
+
+    backLinkPanoID = sortedLinks[sortedLinks.length - 1].pano;
+    console.log("backLinkPanoID_Heading", sortedLinks[sortedLinks.length - 1].heading);
+
+
+    console.log("fowardLinkPanoID", fowardLinkPanoID);
+    console.log("backLinkPanoID", backLinkPanoID);
+
+    if (fowardStatus) {
+      streetView.setPano(fowardLinkPanoID);
+      streetView.setPov(sortedLinks[0].heading);
+      fowardStatus = false;
+      console.log("foward");
+
+    }
+    else if (backwardStatus) {
+      streetView.setPano(backLinkPanoID);
+      streetView.setPov(sortedLinks[sortedLinks.length - 1].heading);
+      backwardStatus = false;
+      console.log("backward");
+    }
+    else {
+      streetView.setPano(data.location.pano);
+      streetView.setPov(pov);
+    }
+
+/*    
     var dot = {
       url: 'dot.png',
       size: new google.maps.Size(20, 20),
@@ -205,15 +275,12 @@ function processSVData(data, status) {
     
     // Update minimap to show new location
     map.panTo(data.location.latLng);
-
-    // Update current coordinates
-    preCoords.lat = coords.lat;
-    preCoords.lng = coords.lng;
-    
+*/
     // Update current coordinates
     coords.lat = data.location.latLng.lat();
     coords.lng = data.location.latLng.lng();
     resolve();
+
   } else {
     console.error('Street View data not found for this location.');
   }
@@ -236,7 +303,6 @@ window.addEventListener("load", streetView);
 
 /*Main Function*/
 async function mainloop() {
-
   // console.log(keyState);
 
   if (!streetView) {
@@ -246,9 +312,11 @@ async function mainloop() {
 
   if (keyState.w) {
     // Handle W key
-    var newCoords = getNewCoordinates(coords, pov.heading, 7);
+    console.log("w");
+    fowardStatus = true;
+    // var newCoords = getNewCoordinates(coords, pov.heading, 7);
     await new Promise((resolve, reject) => {
-      svService.getPanorama({ location: newCoords, preference: google.maps.StreetViewPreference.NEAREST, source: google.maps.StreetViewSource.OUTDOOR, radius: 10 }, (data, status) => {
+      svService.getPanorama({ pano: fowardLinkPanoID }, (data, status) => { 
         processSVData(data, status).then(resolve).catch(reject);
       });
     });
@@ -256,12 +324,15 @@ async function mainloop() {
   if (keyState.a) {
     // Handle A key
     pov.heading += 1;
+    console.log("a + heading", pov);
   }
   if (keyState.s) {
     // Handle S key
-    var newCoords = getNewCoordinates(coords, pov.heading, -7);
+    console.log("s");
+    backwardStatus = true;
+    // var newCoords = getNewCoordinates(coords, pov.heading, -7);
     await new Promise((resolve, reject) => {
-      svService.getPanorama({ location: newCoords, preference: google.maps.StreetViewPreference.NEAREST, source: google.maps.StreetViewSource.OUTDOOR, radius: 10 }, (data, status) => {
+      svService.getPanorama({ pano: backLinkPanoID }, (data, status) => {
         processSVData(data, status).then(resolve).catch(reject);
       });
     });
@@ -269,6 +340,7 @@ async function mainloop() {
   if (keyState.d) {
     // Handle D key
     pov.heading -= 1;
+    console.log("d + heading", pov);
   }
 
   // Clamp pitch value to +/- 20 so you don't end up looking at your feet or the sky
@@ -289,5 +361,5 @@ async function mainloop() {
   streetView.setPov(pov);
 
   window.requestAnimationFrame(mainloop);
-
 }
+
