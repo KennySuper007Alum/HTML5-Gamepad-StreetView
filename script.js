@@ -3,8 +3,9 @@ var keyState = {
   a: false,
   s: false,
   d: false,
+  wDelay: false,
+  sDelay: false,
 };
-
 
 function keydownHandler(e) {
   switch (e.key) {
@@ -120,11 +121,16 @@ function getPreviousCoordinates(preCoords) {
 
 // coculate the difference between 2 points in a circle
 function getDifference(point1, point2) {
-  var dif = Math.abs * (point1 - point2);
 
+  var dif = point1 - point2;
+  if (point1 - point2 < 0) {
+    dif = point2 - point1;
+  }
   if (dif > 180) {
     dif = 360 - dif;
   }
+  console.log("dif", dif);
+
   return dif;
 }
 
@@ -144,8 +150,6 @@ var marker;
 var pov = { heading: 90, pitch: 0 };
 // Start in Paris
 var coords = { lat: 40.44460773097255, lng: -79.9445135945247 };
-var preCoords = { lat: null, lng: null }
-
 //get foward and back links
 var fowardLinkPanoID;
 var backLinkPanoID;
@@ -153,6 +157,8 @@ var backLinkPanoID;
 //foward and backward status
 var fowardStatus = false;
 var backwardStatus = false;
+
+
 
 
 function initMap() {
@@ -193,31 +199,40 @@ function initMap() {
   resizeStreetView()
 }
 
+//check whether the links of data are the same as the previous links
+var sortedLinks;
+var checkRepeationLinks;
+
 function processSVData(data, status) {
   return new Promise((resolve, reject) => {
-  console.log("processSVData");
   if (status === google.maps.StreetViewStatus.OK) {
 
     var adjacentLinks = data.links;
+
+    checkRepeationLinks = adjacentLinks;
+
+    // if (checkRepeationLinks.length == 1) {
+    //   backLinkPanoID = checkRepeationLinks[checkRepeationLinks.length - 1].pano;
+    //   fowardLinkPanoID = checkRepeationLinks[0].pano;
+    //   return;
+    // }
+
+    console.log("processSVData");
 
     //print data.links
     for (var i = 0; i < adjacentLinks.length; i++) {
       console.log(i, "is", adjacentLinks[i]);
     }
 
-    var adjacentPov = pov;
-    var sortedLinks = data.links;
 
-    sortedLinks = adjacentLinks.map(function (link) {
-      return {
+    // sort links based on the difference between adjacentPov and the link heading
+    sortedLinks = adjacentLinks
+      .map((link) => ({
         link: link,
-        difference: getDifference(adjacentPov, link.heading)
-      };
-    }).sort(function (a, b) {
-      return a.difference - b.difference;
-    }).map(function (item) {
-      return item.link;
-    });
+        difference: getDifference(pov.heading, link.heading)
+      }))
+      .sort((a, b) => a.difference - b.difference)
+      .map((item) => item.link);
 
 
     for (var i = 0; i < sortedLinks.length; i++) {
@@ -237,20 +252,21 @@ function processSVData(data, status) {
 
     if (fowardStatus) {
       streetView.setPano(fowardLinkPanoID);
-      streetView.setPov(sortedLinks[0].heading);
+      pov.heading = sortedLinks[0].heading;
+      // streetView.setPov(pov);
       fowardStatus = false;
       console.log("foward");
-
     }
     else if (backwardStatus) {
       streetView.setPano(backLinkPanoID);
-      streetView.setPov(sortedLinks[sortedLinks.length - 1].heading);
+      // pov.heading = sortedLinks[sortedLinks.length - 1].heading;
+      // streetView.setPov(pov);
       backwardStatus = false;
       console.log("backward");
     }
     else {
       streetView.setPano(data.location.pano);
-      streetView.setPov(pov);
+      // streetView.setPov(pov);
     }
 
 /*    
@@ -277,9 +293,9 @@ function processSVData(data, status) {
     map.panTo(data.location.latLng);
 */
     // Update current coordinates
-    coords.lat = data.location.latLng.lat();
-    coords.lng = data.location.latLng.lng();
-    resolve();
+    // coords.lat = data.location.latLng.lat();
+    // coords.lng = data.location.latLng.lng();
+    // resolve();
 
   } else {
     console.error('Street View data not found for this location.');
@@ -294,6 +310,27 @@ function resizeStreetView() {
   streetView.style.height = window.innerHeight + "px";
   // Initialize the Street View when the panel is resized
 }
+
+//maintain all pov.heading between 0 to 360
+function normalPov(heading) {
+  var temHeading = heading;
+  var multiple;
+  if (heading < 0) {
+    if (heading < -360) {
+      multiple = -(temHeading) / 360;
+      heading = heading + (1 + multiple) * 360;
+    }
+    else {
+      heading = heading + 360;
+    }
+  }
+  if (heading > 360) {
+    multiple = temHeading / 360;
+    heading = (heading - multiple * 360);
+  }
+  pov.heading = heading;
+}
+
 // Add a listener to update the Street View panel size when the window is resized.
 window.addEventListener("resize", resizeStreetView);
 
@@ -310,37 +347,43 @@ async function mainloop() {
     return;
   }
 
-  if (keyState.w) {
-    // Handle W key
-    console.log("w");
-    fowardStatus = true;
-    // var newCoords = getNewCoordinates(coords, pov.heading, 7);
-    await new Promise((resolve, reject) => {
-      svService.getPanorama({ pano: fowardLinkPanoID }, (data, status) => { 
-        processSVData(data, status).then(resolve).catch(reject);
-      });
-    });
+  if (keyState.w && !keyState.wDelay && !fowardStatus) {
+    keyState.wDelay = true;
+    setTimeout(() => {
+      keyState.wDelay = false;
+      // Handle W key
+      console.log("w");
+      fowardStatus = true;
+      if (sortedLinks.length == 1) {
+        swal("Out of Boundary, Already turn back", { timer: 3000, });
+      }
+      svService.getPanorama({ pano: fowardLinkPanoID }, processSVData);
+    }, 500);
   }
   if (keyState.a) {
     // Handle A key
-    pov.heading += 1;
-    console.log("a + heading", pov);
+    normalPov(pov.heading);
+    pov.heading -= 1;
+    console.log("a + heading", pov.heading);
   }
-  if (keyState.s) {
-    // Handle S key
-    console.log("s");
-    backwardStatus = true;
-    // var newCoords = getNewCoordinates(coords, pov.heading, -7);
-    await new Promise((resolve, reject) => {
-      svService.getPanorama({ pano: backLinkPanoID }, (data, status) => {
-        processSVData(data, status).then(resolve).catch(reject);
-      });
-    });
+  if (keyState.s && !keyState.sDelay && !backwardStatus) {
+    keyState.sDelay = true;
+    setTimeout(() => {
+      keyState.sDelay = false;
+      // Handle S key
+      console.log("s")
+      backwardStatus = true;
+      if (sortedLinks.length == 1) {
+        swal("Out of Boundary, Already turb back", { timer: 2000, });
+      }
+      svService.getPanorama({ pano: backLinkPanoID }, processSVData);
+    }, 500);
   }
   if (keyState.d) {
     // Handle D key
-    pov.heading -= 1;
-    console.log("d + heading", pov);
+    normalPov(pov.heading);
+    pov.heading += 1;
+    console.log("d + heading", pov.heading);
   }
 
   // Clamp pitch value to +/- 20 so you don't end up looking at your feet or the sky
@@ -356,7 +399,7 @@ async function mainloop() {
   // document.getElementById("wheel").style.transform = "rotate(" + (-pov.heading) + "deg)";
 
   // Simple map
-  document.getElementById("map").style.transform = "rotate(" + pov.heading + "deg)";
+  // document.getElementById("map").style.transform = "rotate(" + pov.heading + "deg)";
 
   streetView.setPov(pov);
 
