@@ -355,7 +355,7 @@ async function mainloop() {
       console.log("w");
       fowardStatus = true;
       if (sortedLinks.length == 1) {
-        swal("Out of Boundary, Already turn back", { timer: 3000, });
+        swal("Out of Boundary, Already turn back", { timer: 2000, });
       }
       svService.getPanorama({ pano: fowardLinkPanoID }, processSVData);
     }, 500);
@@ -374,7 +374,7 @@ async function mainloop() {
       console.log("s")
       backwardStatus = true;
       if (sortedLinks.length == 1) {
-        swal("Out of Boundary, Already turb back", { timer: 2000, });
+        swal("Out of Boundary, Already turn back", { timer: 2000, });
       }
       svService.getPanorama({ pano: backLinkPanoID }, processSVData);
     }, 500);
