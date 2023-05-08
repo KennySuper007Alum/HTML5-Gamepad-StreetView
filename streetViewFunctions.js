@@ -28,9 +28,24 @@ function initMap() {
         keyboardShortcuts: false
     });
 
+    marker = new google.maps.Marker({
+        position: coords,
+        map: map,
+        icon: {
+            path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
+            fillColor: 'blue',
+            fillOpacity: 1,
+            scale: 4,
+            strokeColor: 'blue',
+            strokeWeight: 2,
+            rotation: pov.heading
+        },
+    });
+
     // Show valid Street View locations in a blue overlay on the map
     var streetViewLayer = new google.maps.StreetViewCoverageLayer();
     streetViewLayer.setMap(map);
+
 
     // Street view panel
     streetView = new google.maps.StreetViewPanorama(document.getElementById("streetView"));
@@ -39,9 +54,20 @@ function initMap() {
         disableDefaultUI: true, // Remove all controls: compass, zoom etc
         scrollwheel: false, // Disable zooming using the scroll wheel
         panControl: false,
-        fullscreenControl: true,
+        fullscreenControl: false,
+        clickableIcons: false,
         linksControl: true
     });
+
+    var controlsDiv = document.getElementById('control-wrapper');
+    streetView.controls[google.maps.ControlPosition.RIGHT_BOTTOM].push(controlsDiv);
+
+    var mapPanelDiv = document.getElementById('mapPanel');
+    streetView.controls[google.maps.ControlPosition.TOP_LEFT].push(mapPanelDiv);
+
+    // var fullscreenDiv = document.getElementById('fullscreen');
+    // streetView.controls[google.maps.ControlPosition.TOP_RIGHT].push(fullscreenDiv);
+
 
     // Hook to communicate with the street view data provider service
     svService = new google.maps.StreetViewService();
@@ -49,6 +75,7 @@ function initMap() {
     // Set the initial Street View camera to near the starting coordinates
     svService.getPanorama({ location: coords, radius: 10 }, processSVData);
     resizeStreetView()
+
 }
 
 function resizeStreetView() {
@@ -75,6 +102,15 @@ function normalPov(heading) {
         heading = (heading - multiple * 360);
     }
     pov.heading = heading;
+}
+
+function isMarkerInView(marker, map) {
+    const mapBounds = map.getBounds();
+    if (mapBounds) {
+        const markerPosition = marker.getPosition();
+        return mapBounds.contains(markerPosition);
+    }
+    return true;
 }
 
 function processSVData(data, status) {
@@ -125,20 +161,17 @@ function processSVData(data, status) {
             if (fowardStatus) {
                 streetView.setPano(fowardLinkPanoID);
                 pov.heading = sortedLinks[0].heading;
-                // streetView.setPov(pov);
                 fowardStatus = false;
                 console.log("foward");
             }
             else if (backwardStatus) {
                 streetView.setPano(backLinkPanoID);
-                // pov.heading = sortedLinks[sortedLinks.length - 1].heading;
-                // streetView.setPov(pov);
+
                 backwardStatus = false;
                 console.log("backward");
             }
             else {
                 streetView.setPano(data.location.pano);
-                // streetView.setPov(pov);
             }
 
             //create marker
@@ -165,8 +198,14 @@ function processSVData(data, status) {
                 // Update marker position and heading.
                 marker.setIcon(arrowIcon);
                 marker.setPosition(data.location.latLng);
+                marker.rotation = pov.heading;
             }
 
+            // Check if marker is within the map's view bounds.
+            if (isMarkerInView(marker, map)) {
+                // If marker is not in view, recenter the map at the marker's position.
+                map.setCenter(marker.getPosition());
+            }
 
 
         } else {

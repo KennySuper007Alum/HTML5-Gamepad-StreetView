@@ -5,6 +5,7 @@ async function mainloop() {
         return;
     }
 
+
     if (keyState.w && !keyState.wDelay && !fowardStatus) {
         keyState.wDelay = true;
 
