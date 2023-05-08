@@ -4,9 +4,14 @@
     <meta charset="utf-8">
     <title>DriveThrill</title>
     <link rel="stylesheet" href="style.css"/>
-    <script src="script.js"></script>
+    <!-- <script src="script.js"></script> -->
     <script src="https://unpkg.com/sweetalert/dist/sweetalert.min.js"></script>
     <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDRPn2PvK4DGQlemZ1-scdu7iPcyJUXSU0&callback=initMap" async defer></script>
+    <script src="keyHandlers.js"></script>
+    <script src="buttons.js"></script>
+    <script src="mathFunctions.js"></script>
+    <script src="streetViewFunctions.js"></script>
+    <script src="mainloop.js"></script>       
   </head>
   <body>
     
@@ -15,29 +20,25 @@
       <!-- <div style="text-align: center;">
         <h1>DriveThrill</h1>
       </div> -->
-      
-      <div id="display">
-        
-        <div id="streetView"></div>
+      <div id="streetView"></div>
 
+      <div id="fullscreen">
+        <button id="fullscreenButton">點此開始</button>
+      </div>
+
+      <div id="mapPanel">
+          <div id="map"></div>
+      </div>
+
+
+      <div id="control-wrapper">
         <div id="controls">
           <button id="up"></button>
           <button id="left"></button>
           <button id="down"></button>
           <button id="right"></button>
         </div>
-        
-        <!-- <img id="interior" src="interior.svg" alt="Car interior"/> -->
-
-          <!-- <img id="wheel" src="steering_wheel.svg" alt="Steering wheel" style="transform: rotate(-360deg);"/> -->
-        
-        <div id="mapPanel">
-          <div id="map"></div>
-        </div>
-                
       </div>
-      
-
       
     </main>
     

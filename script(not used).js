@@ -211,12 +211,6 @@ function processSVData(data, status) {
 
     checkRepeationLinks = adjacentLinks;
 
-    // if (checkRepeationLinks.length == 1) {
-    //   backLinkPanoID = checkRepeationLinks[checkRepeationLinks.length - 1].pano;
-    //   fowardLinkPanoID = checkRepeationLinks[0].pano;
-    //   return;
-    // }
-
     console.log("processSVData");
 
     //print data.links
@@ -233,6 +227,11 @@ function processSVData(data, status) {
       }))
       .sort((a, b) => a.difference - b.difference)
       .map((item) => item.link);
+
+    //When reach the boundary, it will give an alarm
+    if (sortedLinks.length == 1) {
+      swal("Out of Boundary, Already turn back", { timer: 2000, });
+    }  
 
 
     for (var i = 0; i < sortedLinks.length; i++) {
@@ -269,33 +268,33 @@ function processSVData(data, status) {
       // streetView.setPov(pov);
     }
 
-/*    
-    var dot = {
-      url: 'dot.png',
-      size: new google.maps.Size(20, 20),
-      origin: new google.maps.Point(0, 0),
-      anchor: new google.maps.Point(10, 10)
+    //create marker
+    const arrowIcon = {
+      path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
+      fillColor: 'blue',
+      fillOpacity: 1,
+      scale: 4,
+      strokeColor: 'blue',
+      strokeWeight: 2,
+      rotation: pov.heading
     };
     
-    // Create or update map marker
+    // Create or update map marker. 
     if(marker == null) {
       marker = new google.maps.Marker({
         position: data.location.latLng,
         map: map,
         clickable: true,
-        icon: dot
+        icon: arrowIcon,
+        zIndex: 10
       });
-    } else {
+    } else { 
+      // Update marker position and heading.
+      marker.setIcon(arrowIcon);
       marker.setPosition(data.location.latLng);
     }
-    
-    // Update minimap to show new location
-    map.panTo(data.location.latLng);
-*/
-    // Update current coordinates
-    // coords.lat = data.location.latLng.lat();
-    // coords.lng = data.location.latLng.lng();
-    // resolve();
+
+
 
   } else {
     console.error('Street View data not found for this location.');
@@ -349,14 +348,12 @@ async function mainloop() {
 
   if (keyState.w && !keyState.wDelay && !fowardStatus) {
     keyState.wDelay = true;
+
     setTimeout(() => {
       keyState.wDelay = false;
       // Handle W key
       console.log("w");
       fowardStatus = true;
-      if (sortedLinks.length == 1) {
-        swal("Out of Boundary, Already turn back", { timer: 2000, });
-      }
       svService.getPanorama({ pano: fowardLinkPanoID }, processSVData);
     }, 500);
   }
@@ -399,7 +396,7 @@ async function mainloop() {
   // document.getElementById("wheel").style.transform = "rotate(" + (-pov.heading) + "deg)";
 
   // Simple map
-  // document.getElementById("map").style.transform = "rotate(" + pov.heading + "deg)";
+  document.getElementById("map").style.transform = "rotate(" + pov.heading + "deg)";
 
   streetView.setPov(pov);
 
